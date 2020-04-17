@@ -10,7 +10,7 @@
 #include "machine-image.h"
 #include "sd-bus.h"
 
-int main() {
+int main(int argc, char *argv[]) {
     Image* image;
     sd_bus_error* error;
 
@@ -21,7 +21,7 @@ int main() {
     int r;
 
     // Generate a sd_bus_message
-    char* fname = "test.txt";
+    const char* fname = "test.txt";
     r = read_full_file(fname, &buffer, &size);
     if (r < 0) {
             log_error_errno(r, "Failed to open '%s': %m", fname);
