@@ -11,8 +11,8 @@
 #include "sd-bus.h"
 
 int main(int argc, char *argv[]) {
-    Image* image;
-    sd_bus_error* error;
+    Image* image = NULL;
+    image_new(IMAGE_SUBVOLUME, "pretty", "path", "filename", /*read_only=*/true, /*crtime=*/0, /*mtime=*/0, &image);
 
     size_t size;
     sd_bus* bus = NULL;
@@ -37,5 +37,6 @@ int main(int argc, char *argv[]) {
     assert_se(r >= 0);
     TAKE_PTR(buffer);
 
-    bus_image_method_clone(message, image, error);
+    const sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+    bus_image_method_clone(message, image, &bus_error);
 }
