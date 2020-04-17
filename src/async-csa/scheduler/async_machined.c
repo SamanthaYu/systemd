@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
     TAKE_PTR(buffer);
 
     // Generate an image
+    // TODO(samanthayu): Call the static function, image_new(), instead
     Image* image = NULL;
     r = image_find(IMAGE_MACHINE, "bus_label", &image);
 
@@ -45,6 +46,20 @@ int main(int argc, char *argv[]) {
     bus_image_method_clone(message, image, &bus_error);
     if (r == -ENOENT)
         return 0;
+    if (r < 0)
+        return r;
+
+    // 2. Call image_object_find(), which will trigger image_flush_cache()
+    // TODO(samanthayu): Generate the image_flush_cache() defer event from image_object_find()
+    //      - For now, we'll just have image_object_find() call image_flush_cache() directly
+    Manager* userdata = NULL;
+    r = manager_new(&userdata);
+    if (r < 0)
+        return r;
+
+    Image* found_image;
+    r = image_object_find(
+        bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface", (void*) userdata, &found_image, &bus_error);
     if (r < 0)
         return r;
 }

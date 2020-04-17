@@ -423,6 +423,11 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
                 if (r < 0)
                         return r;
 
+                // TODO(samanthayu): Generate this call to image_flush_cache()
+                r = image_flush_cache(m->image_cache_defer_event, m);
+                if (r < 0)
+                        return r;
+
                 r = sd_event_source_set_priority(m->image_cache_defer_event, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)
                         return r;
