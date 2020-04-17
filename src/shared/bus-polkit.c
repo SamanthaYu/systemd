@@ -136,14 +136,6 @@ int bus_test_polkit(
 
 #if ENABLE_POLKIT
 
-typedef struct AsyncPolkitQuery {
-        sd_bus_message *request, *reply;
-        sd_bus_message_handler_t callback;
-        void *userdata;
-        sd_bus_slot *slot;
-        Hashmap *registry;
-} AsyncPolkitQuery;
-
 static void async_polkit_query_free(AsyncPolkitQuery *q) {
 
         if (!q)
