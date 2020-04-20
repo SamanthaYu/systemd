@@ -7,9 +7,75 @@
 #include "bus-polkit.h"
 #include "fileio.h"
 #include "image-dbus.h"
-#include "machined.h"
+#include "machine.h"
 #include "machine-image.h"
 #include "sd-bus.h"
+
+int manager_new(Manager **ret);
+static Manager* manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
+
+int manager_new(Manager **ret) {
+        _cleanup_(manager_unrefp) Manager *m = NULL;
+        int r;
+
+        assert(ret);
+
+        m = new0(Manager, 1);
+        if (!m)
+                return -ENOMEM;
+
+        m->machines = hashmap_new(&machine_hash_ops);
+        m->machine_units = hashmap_new(&string_hash_ops);
+        m->machine_leaders = hashmap_new(NULL);
+
+        if (!m->machines || !m->machine_units || !m->machine_leaders)
+                return -ENOMEM;
+
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_set_watchdog(m->event, true);
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+Manager* manager_unref(Manager *m) {
+        if (!m)
+                return NULL;
+
+        while (m->operations)
+                operation_free(m->operations);
+
+        assert(m->n_operations == 0);
+
+        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
+        hashmap_free(m->machine_units);
+        hashmap_free(m->machine_leaders);
+        hashmap_free(m->image_cache);
+
+        sd_event_source_unref(m->image_cache_defer_event);
+        sd_event_source_unref(m->nscd_cache_flush_event);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        sd_bus_flush_close_unref(m->bus);
+        sd_event_unref(m->event);
+
+        return mfree(m);
+}
 
 int main(int argc, char *argv[]) {
     int r;
@@ -64,7 +130,7 @@ int main(int argc, char *argv[]) {
 
     Image* found_image;
     r = image_object_find(
-        bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface", (void*) manager, &found_image, &bus_error);
+        bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface", (void*) manager, (void**) &found_image, &bus_error);
     if (r < 0)
         return r;
 
