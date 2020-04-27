@@ -18,63 +18,63 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
-        int r;
+    _cleanup_(manager_unrefp) Manager *m = NULL;
+    int r;
 
-        assert(ret);
+    assert(ret);
 
-        m = new0(Manager, 1);
-        if (!m)
-                return -ENOMEM;
+    m = new0(Manager, 1);
+    if (!m)
+        return -ENOMEM;
 
-        m->machines = hashmap_new(&machine_hash_ops);
-        m->machine_units = hashmap_new(&string_hash_ops);
-        m->machine_leaders = hashmap_new(NULL);
+    m->machines = hashmap_new(&machine_hash_ops);
+    m->machine_units = hashmap_new(&string_hash_ops);
+    m->machine_leaders = hashmap_new(NULL);
 
-        if (!m->machines || !m->machine_units || !m->machine_leaders)
-                return -ENOMEM;
+    if (!m->machines || !m->machine_units || !m->machine_leaders)
+        return -ENOMEM;
 
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                return r;
+    r = sd_event_default(&m->event);
+    if (r < 0)
+        return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-        if (r < 0)
-                return r;
+    r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+    if (r < 0)
+        return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
+    r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+    if (r < 0)
+        return r;
 
-        (void) sd_event_set_watchdog(m->event, true);
+    (void) sd_event_set_watchdog(m->event, true);
 
-        *ret = TAKE_PTR(m);
-        return 0;
+    *ret = TAKE_PTR(m);
+    return 0;
 }
 
 Manager* manager_unref(Manager *m) {
-        if (!m)
-                return NULL;
+    if (!m)
+    return NULL;
 
-        while (m->operations)
-                operation_free(m->operations);
+    while (m->operations)
+    operation_free(m->operations);
 
-        assert(m->n_operations == 0);
+    assert(m->n_operations == 0);
 
-        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
-        hashmap_free(m->machine_units);
-        hashmap_free(m->machine_leaders);
-        hashmap_free(m->image_cache);
+    hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
+    hashmap_free(m->machine_units);
+    hashmap_free(m->machine_leaders);
+    hashmap_free(m->image_cache);
 
-        sd_event_source_unref(m->image_cache_defer_event);
-        sd_event_source_unref(m->nscd_cache_flush_event);
+    sd_event_source_unref(m->image_cache_defer_event);
+    sd_event_source_unref(m->nscd_cache_flush_event);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+    bus_verify_polkit_async_registry_free(m->polkit_registry);
 
-        sd_bus_flush_close_unref(m->bus);
-        sd_event_unref(m->event);
+    sd_bus_flush_close_unref(m->bus);
+    sd_event_unref(m->event);
 
-        return mfree(m);
+    return mfree(m);
 }
 
 int main(int argc, char *argv[]) {
@@ -91,8 +91,8 @@ int main(int argc, char *argv[]) {
     size_t size;
     r = read_full_file(fname, &buffer, &size);
     if (r < 0) {
-            log_error_errno(r, "Failed to open '%s': %m", fname);
-            return EXIT_FAILURE;
+        log_error_errno(r, "Failed to open '%s': %m", fname);
+        return EXIT_FAILURE;
     }
 
     // Generate sd_bus_message request and reply
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
         return r;
 
     // TODO(samanthayu): Fix checker to detect hashmap_clear()
-    hashmap_clear(manager->polkit_registry);
+    free(manager->image_cache);
 
     // 3. Call async_polkit_callback()
     // query->slot doesn't seem to be defined anywhere
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
     query.userdata = sd_bus_get_current_userdata(request_msg->bus);
 
     // This registry should trigger the use-after-free
-    query.registry = manager->polkit_registry;
+    query.registry = manager->image_cache;
 
     r = async_polkit_callback(request_msg, (void*) &query, &bus_error);
     if (r < 0)

@@ -15,12 +15,14 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
 #include "main-func.h"
 #include "process-util.h"
+#include "sd-bus.h"
 #include "signal-util.h"
 #include "special.h"
 
@@ -345,6 +347,67 @@ static int manager_run(Manager *m) {
                         check_idle, m);
 }
 
+static int async_manager_run(Manager *m) {
+        assert(m);
+        int r = 0;
+
+        // Generate sd_bus_message request and reply
+        sd_bus_message* request_msg = NULL;
+        r = sd_bus_message_new(m->bus, &request_msg, SD_BUS_MESSAGE_METHOD_CALL);
+        if (r == -EBADMSG)
+                return 0;
+
+        sd_bus_message* reply_msg = NULL;
+        r = sd_bus_message_new(m->bus, &reply_msg, SD_BUS_MESSAGE_METHOD_CALL);
+        if (r == -EBADMSG)
+                return 0;
+
+        // Generate an image
+        // TODO(samanthayu): Call the static function, image_new() or image_from_path(), instead
+        Image* image = NULL;
+        r = image_find(IMAGE_MACHINE, "bus_label", &image);
+
+        // 1. Call an sd_bus_table handler; e.g. bus_image_method_clone()
+        // - Normally, these method handlers will trigger async_polkit_callback(), but we will call it directly
+        sd_bus_error bus_error;
+        bus_image_method_clone(request_msg, image, &bus_error);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        // 2. Call image_object_find(), which will trigger image_flush_cache()
+        // TODO(samanthayu): Generate the image_flush_cache() defer event from image_object_find()
+        // - For now, we'll just have image_object_find() call image_flush_cache() directly
+        Image* found_image;
+        r = image_object_find(
+                m->bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface",
+                (void*) m, (void**) &found_image, &bus_error);
+        if (r < 0)
+                return r;
+
+        // TODO(samanthayu): Fix checker to detect hashmap_clear()
+        hashmap_clear(m->image_cache);
+
+        m->image_cache = hashmap_new(&image_hash_ops);
+        if (!m->image_cache)
+                return -ENOMEM;
+
+        // 3. Call async_polkit_callback()
+        // query->slot doesn't seem to be defined anywhere
+        AsyncPolkitQuery query;
+        query.request = request_msg;
+        query.reply = reply_msg;
+        query.callback = sd_bus_get_current_handler(m->bus);
+        if (!query.callback)
+                return -EINVAL;
+
+        query.userdata = sd_bus_get_current_userdata(m->bus);
+        query.registry = m->polkit_registry;
+
+        return async_polkit_callback(request_msg, (void*) &query, &bus_error);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
@@ -379,7 +442,8 @@ static int run(int argc, char *argv[]) {
                          "READY=1\n"
                          "STATUS=Processing requests...");
 
-        r = manager_run(m);
+        // r = manager_run(m);
+        r = async_manager_run(m);
 
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
         (void) sd_notify(false,
