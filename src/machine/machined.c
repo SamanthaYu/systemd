@@ -362,23 +362,12 @@ static int async_manager_run(Manager *m) {
         if (r == -EBADMSG)
                 return 0;
 
-        // Generate an image
-        // TODO(samanthayu): Call the static function, image_new() or image_from_path(), instead
-        Image* image = NULL;
-        r = image_find(IMAGE_MACHINE, "bus_label", &image);
-
-        // 1. Call an sd_bus_table handler; e.g. bus_image_method_clone()
-        // - Normally, these method handlers will trigger async_polkit_callback(), but we will call it directly
-        sd_bus_error bus_error;
-        bus_image_method_clone(request_msg, image, &bus_error);
-        if (r == -ENOENT)
-                return 0;
+        // 1. Call a DBus interface method
+        // a) Call image_object_find()
         if (r < 0)
                 return r;
 
-        // 2. Call image_object_find(), which will trigger image_flush_cache()
-        // TODO(samanthayu): Generate the image_flush_cache() defer event from image_object_find()
-        // - For now, we'll just have image_object_find() call image_flush_cache() directly
+        sd_bus_error bus_error;
         Image* found_image;
         r = image_object_find(
                 m->bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface",
@@ -386,14 +375,17 @@ static int async_manager_run(Manager *m) {
         if (r < 0)
                 return r;
 
-        // TODO(samanthayu): Fix checker to detect hashmap_clear()
         hashmap_clear(m->image_cache);
 
-        m->image_cache = hashmap_new(&image_hash_ops);
-        if (!m->image_cache)
-                return -ENOMEM;
+        // b) Call an sd_bus_table handler; e.g. bus_image_method_clone()
+        // - Normally, these method handlers will trigger async_polkit_callback(), but we will call it directly
+        bus_image_method_clone(request_msg, found_image, &bus_error);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
 
-        // 3. Call async_polkit_callback()
+        // c) Define AsyncPolkitQuery, which would be declared in bus_verify_polkit_async()
         // query->slot doesn't seem to be defined anywhere
         AsyncPolkitQuery query;
         query.request = request_msg;
@@ -405,6 +397,19 @@ static int async_manager_run(Manager *m) {
         query.userdata = sd_bus_get_current_userdata(m->bus);
         query.registry = m->polkit_registry;
 
+        // 2. Call image_object_find() again, which will trigger image_flush_cache()
+        // - We free the image_cache_defer_event, so that it will trigger image_cache_flush()
+        // TODO(samanthayu): Generate the image_flush_cache() defer event from image_object_find()
+        // - For now, we'll just have image_object_find() call image_flush_cache() directly
+        free(m->image_cache_defer_event);
+        Image* found_image2;
+        r = image_object_find(
+                m->bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface",
+                (void*) m, (void**) &found_image2, &bus_error);
+        if (r < 0)
+                return r;
+
+        // 3. Call async_polkit_callback()
         return async_polkit_callback(request_msg, (void*) &query, &bus_error);
 }
 
