@@ -1580,7 +1580,7 @@ subdir('src/udev')
 subdir('src/network')
 
 subdir('src/analyze')
-subdir('src/async-csa/scheduler')
+subdir('src/async-csa')
 subdir('src/journal-remote')
 subdir('src/coredump')
 subdir('src/pstore')
@@ -2332,12 +2332,10 @@ if conf.get('ENABLE_MACHINED') == 1
                          install_dir : rootbindir)
         public_programs += exe
 
-        async_csa = executable('async-csa',
-		               async_csa_sources,
-		               include_directories: [includes, async_csa_includes],
-		               link_with : [libmachine_core,
-		                            libshared]
-        )
+        async_csa_tests = executable('async-csa-tests',
+                                     async_csa_sources,
+                                     include_directories: [includes, async_csa_includes],
+                                     link_with : [libmachine_core, libshared])
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1

@@ -1,7 +1,7 @@
 async_csa_sources = files('''
-    async_machined.c
+    test_cache.c
 '''.split())
 
 async_csa_includes = include_directories(
-    '../../machine'
+    '../machine'
 )
