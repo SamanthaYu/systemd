@@ -1,6 +1,8 @@
 #include "hashmap.h"
 #include "machine-image.h"
 
+#include <stdio.h>
+
 static void test_clear_hashmap(void) {
     Hashmap* cache = hashmap_new(NULL);
 
@@ -21,6 +23,14 @@ static void test_clear_hashmap(void) {
     printf("Image %s\n", image1->name);
 }
 
+// Used to double-check that SimpleStreamChecker is running
+static void test_double_close(void) {
+    FILE* pfile = fopen("test.txt", "w");
+    fclose(pfile);
+    fclose(pfile);
+}
+
 int main(int argc, char *argv[]) {
     test_clear_hashmap();
+    test_double_close();
 }
