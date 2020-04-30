@@ -19,8 +19,9 @@ static void test_clear_cache(void) {
     hashmap_clear(cache);
     printf("Image %s\n", image1->name);
 
-    // Checker should detect use-after-free here
-    printf("Image %s\n", image2->name);
+    // Checker should not detect use-after-free here
+    // We are setting image2's name to image1's
+    image2->name = image1->name;
 }
 
 int main(int argc, char *argv[]) {

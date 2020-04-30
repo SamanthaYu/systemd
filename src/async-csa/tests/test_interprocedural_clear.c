@@ -3,7 +3,11 @@
 
 #include <stdio.h>
 
-static void test_clear_cache(void) {
+static void clear(Hashmap* cache) {
+    hashmap_clear(cache);
+}
+
+static void test_interprocedural_clear(void) {
     Hashmap* cache = hashmap_new(NULL);
 
     Image* image1 = NULL;
@@ -16,7 +20,7 @@ static void test_clear_cache(void) {
     hashmap_put(cache, "Cache_Image2", image2);
     hashmap_put(cache, "Cache_Image3", image3);
 
-    hashmap_clear(cache);
+    clear(cache);
     printf("Image %s\n", image1->name);
 
     // Checker should detect use-after-free here
@@ -24,5 +28,5 @@ static void test_clear_cache(void) {
 }
 
 int main(int argc, char *argv[]) {
-    test_clear_cache();
+    test_interprocedural_clear();
 }
