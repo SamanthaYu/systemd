@@ -1580,7 +1580,7 @@ subdir('src/udev')
 subdir('src/network')
 
 subdir('src/analyze')
-subdir('src/async-csa')
+subdir('src/async-csa/tests')
 subdir('src/journal-remote')
 subdir('src/coredump')
 subdir('src/pstore')
