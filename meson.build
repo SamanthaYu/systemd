@@ -2332,10 +2332,25 @@ if conf.get('ENABLE_MACHINED') == 1
                          install_dir : rootbindir)
         public_programs += exe
 
-        async_csa_tests = executable('async-csa-tests',
-                                     async_csa_sources,
-                                     include_directories: [includes, async_csa_includes],
-                                     link_with : [libmachine_core, libshared])
+        async_test_clear_cache = executable('async-test-clear-cache',
+                                            test_clear_cache,
+                                            include_directories: [includes, async_csa_includes],
+                                            link_with : [libmachine_core, libshared])
+
+        async_test_clear_once_multiple_cache = executable('async-test-clear-once-multiple-cache',
+                                                          test_clear_once_multiple_cache,
+                                                          include_directories: [includes, async_csa_includes],
+                                                          link_with : [libmachine_core, libshared])
+
+        async_test_interprocedural_clear = executable('async-test-interprocedural-clear',
+                                                      test_interprocedural_clear,
+                                                      include_directories: [includes, async_csa_includes],
+                                                      link_with : [libmachine_core, libshared])
+
+        async_test_reset_cache = executable('async-test-reset-cache',
+                                            test_reset_cache,
+                                            include_directories: [includes, async_csa_includes],
+                                            link_with : [libmachine_core, libshared])
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1

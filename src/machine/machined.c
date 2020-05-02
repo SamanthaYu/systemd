@@ -375,8 +375,6 @@ static int async_manager_run(Manager *m) {
         if (r < 0)
                 return r;
 
-        hashmap_clear(m->image_cache);
-
         // b) Call an sd_bus_table handler; e.g. bus_image_method_clone()
         // - Normally, these method handlers will trigger async_polkit_callback(), but we will call it directly
         bus_image_method_clone(request_msg, found_image, &bus_error);
@@ -394,20 +392,13 @@ static int async_manager_run(Manager *m) {
         if (!query.callback)
                 return -EINVAL;
 
-        query.userdata = sd_bus_get_current_userdata(m->bus);
+        query.userdata = sd_bus_get_current_userdata(m->bus);   // Should return found_image
         query.registry = m->polkit_registry;
 
-        // 2. Call image_object_find() again, which will trigger image_flush_cache()
-        // - We free the image_cache_defer_event, so that it will trigger image_cache_flush()
+        // 2. We clear the cache; i.e. Call image_flush_cache()
         // TODO(samanthayu): Generate the image_flush_cache() defer event from image_object_find()
         // - For now, we'll just have image_object_find() call image_flush_cache() directly
-        free(m->image_cache_defer_event);
-        Image* found_image2;
-        r = image_object_find(
-                m->bus, /*path=*/"/org/freedesktop/machine1/image/test", "interface",
-                (void*) m, (void**) &found_image2, &bus_error);
-        if (r < 0)
-                return r;
+        hashmap_clear(m->image_cache);
 
         // 3. Call async_polkit_callback()
         return async_polkit_callback(request_msg, (void*) &query, &bus_error);
